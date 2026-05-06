@@ -1,38 +1,30 @@
 import { z } from "zod";
+import { NextResponse } from "next/server";
 
-import { createRouteLogger } from "@/lib/logger";
-import type { ApiResponse } from "@/types/api";
-
-export function ok<TData, TMeta = undefined>(
-  data: TData,
-  meta?: TMeta
-): Response {
-  return Response.json({
-    success: true,
-    data,
-    meta,
-  } satisfies ApiResponse<TData, TMeta>);
+export function ok<T>(data: T, meta?: unknown): NextResponse {
+  return NextResponse.json({ success: true, data, ...(meta ? { meta } : {}) });
 }
 
-export function fail(message: string, status = 400): Response {
-  return Response.json(
-    {
-      success: false,
-      data: null,
-      error: message,
-    },
-    { status }
-  );
+export function fail(message: string, status = 400): NextResponse {
+  return NextResponse.json({ success: false, error: message }, { status });
 }
 
-export async function parseJson<TSchema extends z.ZodTypeAny>(
-  request: Request,
-  schema: TSchema
-): Promise<z.infer<TSchema>> {
-  const payload = await request.json();
-  return schema.parse(payload);
+export function handleError(err: unknown): NextResponse {
+  if (err instanceof z.ZodError) {
+    return fail(err.issues[0]?.message ?? "Validation error", 400);
+  }
+  const e = err as any;
+  if (e?.status && e?.message) {
+    return fail(e.message, e.status);
+  }
+  console.error(err);
+  return fail("Internal server error", 500);
 }
 
-export function getRequestLogger(name: string) {
-  return createRouteLogger({ route: name });
+export async function parseBody<T extends z.ZodTypeAny>(
+  req: Request,
+  schema: T
+): Promise<z.infer<T>> {
+  const body = await req.json();
+  return schema.parse(body);
 }

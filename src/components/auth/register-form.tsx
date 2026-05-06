@@ -9,7 +9,7 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export function RegisterForm() {
 
   async function handleRegister() {
     setLoading(true);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -29,10 +29,6 @@ export function RegisterForm() {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
           "/onboarding/org"
         )}`,
-        data: {
-          full_name: fullName,
-          phone,
-        },
       },
     });
 
@@ -42,17 +38,20 @@ export function RegisterForm() {
       return;
     }
 
-    if (data.user && data.session) {
+    if (data.user) {
       await api.post("/api/auth/complete-profile", {
         fullName,
         phone: phone || undefined,
       });
-      toast.success("Account created");
-      router.push("/onboarding/org");
-      router.refresh();
-    } else {
-      toast.success("Verify your email to continue");
-      router.push("/auth/verify-email");
+      
+      if (data.session) {
+        toast.success("Account created");
+        router.push("/onboarding/org");
+        router.refresh();
+      } else {
+        toast.success("Verify your email to continue");
+        router.push("/auth/verify-email");
+      }
     }
 
     setLoading(false);

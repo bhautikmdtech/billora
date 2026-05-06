@@ -1,17 +1,16 @@
 export type SortOrder = "asc" | "desc";
 
-export interface PaginationMeta {
-  total: number;
-  page: number;
-  pages: number;
-  limit: number;
-}
-
-export interface ApiResponse<TData, TMeta = PaginationMeta> {
+export interface ApiResponse<T> {
   success: boolean;
-  data: TData;
+  data?: T;
   error?: string;
-  meta?: TMeta;
+  code?: string;
+  meta?: {
+    total: number;
+    page: number;
+    pages: number;
+    limit: number;
+  };
 }
 
 export interface ApiErrorShape {
@@ -27,4 +26,3 @@ export interface ListQueryParams {
   order?: SortOrder;
   search?: string;
 }
-

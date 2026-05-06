@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export function ResetPasswordForm() {
     }
 
     setLoading(true);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.auth.updateUser({
       password,
     });

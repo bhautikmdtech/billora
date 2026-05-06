@@ -1,61 +1,43 @@
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import type { PlanName } from "@/types/domain";
 
-const PLAN_LIMITS = {
-  Free: {
-    shops: 1,
-    skus: 500,
-    export: false,
-    prioritySupport: false,
-  },
-  Basic: {
-    shops: 3,
-    skus: Number.POSITIVE_INFINITY,
-    export: true,
-    prioritySupport: false,
-  },
-  Pro: {
-    shops: Number.POSITIVE_INFINITY,
-    skus: Number.POSITIVE_INFINITY,
-    export: true,
-    prioritySupport: true,
-  },
+export const PLAN_LIMITS = {
+  free: { shops: 1, skus: 500, members: 5, exports: false },
+  trialing: { shops: 3, skus: -1, members: 20, exports: true },
+  basic: { shops: 3, skus: -1, members: 20, exports: true },
+  pro: { shops: -1, skus: -1, members: -1, exports: true },
 } as const;
 
-export async function getOrgPlan(orgId: string): Promise<PlanName> {
-  const [subscription] = await db
-    .select({ planName: subscriptions.planName })
+export type Plan = keyof typeof PLAN_LIMITS;
+
+export async function getOrgSubscription(orgId: string) {
+  const [sub] = await db
+    .select()
     .from(subscriptions)
-    .where(eq(subscriptions.orgId, orgId))
-    .limit(1);
-
-  const planName = subscription?.planName;
-  if (planName === "Basic" || planName === "Pro") {
-    return planName;
-  }
-
-  return "Free";
+    .where(eq(subscriptions.orgId, orgId));
+  return sub ?? null;
 }
 
-export async function getOrgPlanLimits(orgId: string) {
+export async function getOrgPlan(orgId: string): Promise<Plan> {
+  const sub = await getOrgSubscription(orgId);
+  if (!sub) return "free";
+
+  // Trialing counts as "trialing" plan
+  if (sub.status === "trialing") return "trialing";
+  if (sub.status !== "active") return "free";
+
+  const planKey = (sub.planName?.toLowerCase() ?? "free") as Plan;
+  return PLAN_LIMITS[planKey] ? planKey : "free";
+}
+
+export async function isFeatureAllowed(orgId: string, feature: "exports") {
   const plan = await getOrgPlan(orgId);
-  return {
-    plan,
-    limits: PLAN_LIMITS[plan],
-  };
+  return PLAN_LIMITS[plan][feature];
 }
 
-export async function assertOrgFeatureAccess(
-  orgId: string,
-  feature: keyof (typeof PLAN_LIMITS)["Free"]
-) {
-  const { plan, limits } = await getOrgPlanLimits(orgId);
-
-  if (!limits[feature]) {
-    throw new Error(`${feature} is not available on the ${plan} plan`);
-  }
-
-  return { plan, limits };
+export async function checkShopLimit(orgId: string, currentCount: number): Promise<boolean> {
+  const plan = await getOrgPlan(orgId);
+  const limit = PLAN_LIMITS[plan].shops;
+  return limit === -1 || currentCount < limit;
 }

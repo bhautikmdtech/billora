@@ -16,7 +16,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShopFlow ERP",
+  title: "Billora ERP",
   description: "Multi-tenant retail ERP for modern stores",
 };
 

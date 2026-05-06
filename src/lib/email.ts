@@ -1,46 +1,42 @@
-import type { ReactElement } from "react";
+import "server-only";
 import { Resend } from "resend";
+import { serverEnv } from "@/lib/env/server";
+import { InviteEmail } from "@/emails/InviteEmail";
+import React from "react";
 
-import { envConfig, env } from "@/lib/env";
-import { logger } from "@/lib/logger";
+const resend = new Resend(serverEnv.RESEND_API_KEY);
 
-export type EmailTemplateName =
-  | "welcome"
-  | "invite"
-  | "password-reset"
-  | "bill-customer"
-  | "daily-summary"
-  | "payment-failed"
-  | "payment-success"
-  | "low-stock-alert"
-  | "contact-inquiry";
+const FROM = serverEnv.RESEND_FROM_EMAIL
+  ? `${serverEnv.RESEND_FROM_NAME} <${serverEnv.RESEND_FROM_EMAIL}>`
+  : "Billora ERP <noreply@billora.app>";
 
-export interface EmailPayload {
-  subject: string;
-  react: ReactElement;
-}
-
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
-
-export async function sendEmail(
-  to: string | string[],
-  template: EmailTemplateName,
-  payload: EmailPayload
-) {
-  if (!resend || !envConfig.notifications.resendFromEmail) {
-    logger.warn({ template }, "Skipping email send because Resend is not configured");
+async function send(to: string | string[], subject: string, react: React.ReactElement) {
+  if (!serverEnv.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY not set — skipping email to", to);
     return;
   }
-
   try {
-    await resend.emails.send({
-      from: `${envConfig.notifications.resendFromName} <${envConfig.notifications.resendFromEmail}>`,
-      to,
-      subject: payload.subject,
-      react: payload.react,
-    });
-  } catch (error) {
-    logger.error({ error, template }, "Failed to send email");
+    await resend.emails.send({ from: FROM, to, subject, react });
+  } catch (err) {
+    console.error("[email] send failed:", err);
   }
 }
 
+export async function sendInviteEmail(opts: {
+  to: string;
+  orgName: string;
+  role: string;
+  inviterName: string;
+  token: string;
+}) {
+  await send(
+    opts.to,
+    `You've been invited to join ${opts.orgName} on Billora ERP`,
+    React.createElement(InviteEmail, {
+      orgName: opts.orgName,
+      role: opts.role,
+      inviterName: opts.inviterName,
+      token: opts.token,
+    })
+  );
+}

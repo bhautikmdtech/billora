@@ -1,87 +1,53 @@
+import "server-only";
 import Stripe from "stripe";
+import { serverEnv } from "@/lib/env/server";
 
-import { env } from "@/lib/env";
-import type { StripePlan, StripePlanPrice } from "@/types/domain";
+export const stripe = new Stripe(serverEnv.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
+  apiVersion: "2025-04-30.basil",
+  typescript: true,
+});
 
-export const stripe = env.STRIPE_SECRET_KEY
-  ? new Stripe(env.STRIPE_SECRET_KEY)
-  : null;
+let cachedPlans: StripePlan[] | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 10 * 60 * 1000;
 
-type CachedPlans = {
-  expiresAt: number;
-  plans: StripePlan[];
-};
-
-let cachedPlans: CachedPlans | null = null;
-
-function extractFeatures(metadata: Stripe.Metadata | null | undefined) {
-  const rawFeatures = metadata?.features;
-  if (!rawFeatures) {
-    return [];
-  }
-
-  return rawFeatures
-    .split("|")
-    .map((feature: string) => feature.trim())
-    .filter(Boolean);
+export interface StripePlan {
+  id: string;
+  priceId: string;
+  name: string;
+  description: string | null;
+  features: string[];
+  amount: number;
+  interval: "month" | "year";
+  currency: string;
 }
 
-function mapPrice(price: Stripe.Price): StripePlanPrice | null {
-  if (!price.recurring?.interval || price.unit_amount == null) {
-    return null;
-  }
-
-  return {
-    priceId: price.id,
-    amount: price.unit_amount,
-    currency: price.currency,
-    interval: price.recurring.interval as StripePlanPrice["interval"],
-  };
-}
-
-export async function getActiveStripePlans() {
-  if (!stripe) {
-    return [];
-  }
-
+export async function getPlansFromStripe(): Promise<StripePlan[]> {
   const now = Date.now();
-  if (cachedPlans && cachedPlans.expiresAt > now) {
-    return cachedPlans.plans;
-  }
+  if (cachedPlans && now - lastFetchTime < CACHE_TTL) return cachedPlans;
 
-  const [products, prices] = await Promise.all([
-    stripe.products.list({ active: true, limit: 100 }),
-    stripe.prices.list({ active: true, limit: 100, expand: ["data.product"] }),
-  ]);
+  const products = await stripe.products.list({
+    active: true,
+    expand: ["data.default_price"],
+  });
 
-  const planMap = new Map<string, StripePlan>();
-
-  products.data.forEach((product: Stripe.Product) => {
-    planMap.set(product.id, {
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      features: extractFeatures(product.metadata),
-      prices: {},
+  const plans: StripePlan[] = products.data
+    .filter((p) => p.default_price)
+    .map((product) => {
+      const price = product.default_price as Stripe.Price;
+      return {
+        id: product.id,
+        priceId: price.id,
+        name: product.name,
+        description: product.description,
+        features: (product.metadata.features ?? "").split(",").map((f) => f.trim()).filter(Boolean),
+        amount: price.unit_amount ?? 0,
+        interval: (price.recurring?.interval ?? "month") as "month" | "year",
+        currency: price.currency,
+      };
     });
-  });
 
-  prices.data.forEach((price: Stripe.Price) => {
-    const productId =
-      typeof price.product === "string" ? price.product : price.product.id;
-    const plan = planMap.get(productId);
-    const mappedPrice = mapPrice(price);
-
-    if (plan && mappedPrice) {
-      plan.prices[mappedPrice.interval] = mappedPrice;
-    }
-  });
-
-  const plans = Array.from(planMap.values());
-  cachedPlans = {
-    plans,
-    expiresAt: now + 10 * 60 * 1000,
-  };
-
+  cachedPlans = plans;
+  lastFetchTime = now;
   return plans;
 }

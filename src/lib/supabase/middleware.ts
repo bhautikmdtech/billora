@@ -1,94 +1,92 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-import { clientEnv } from "@/lib/env/client";
-import type { Database } from "@/types/database";
 
 const protectedPrefixes = [
   "/workspace",
-  "/app",
   "/profile",
   "/superadmin",
   "/onboarding",
 ];
-const protectedApiPrefixes = ["/api/orgs", "/api/dashboard", "/api/shops"];
+
+const protectedApiPrefixes = [
+  "/api/orgs",
+  "/api/dashboard",
+  "/api/shops",
+  "/api/invites",
+  "/api/stripe/checkout",
+  "/api/stripe/portal",
+];
+
 const guestOnlyPrefixes = ["/auth/login", "/auth/register"];
 
 function isProtectedPath(pathname: string) {
-  return protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
+  return protectedPrefixes.some((p) => pathname.startsWith(p));
 }
 
 function isProtectedApiPath(pathname: string) {
-  return protectedApiPrefixes.some((prefix) => pathname.startsWith(prefix));
+  return protectedApiPrefixes.some((p) => pathname.startsWith(p));
 }
 
 function isGuestOnlyPath(pathname: string) {
-  return guestOnlyPrefixes.some((prefix) => pathname.startsWith(prefix));
+  return guestOnlyPrefixes.some((p) => pathname.startsWith(p));
 }
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
 
-  const supabase = createServerClient<Database>(
-    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
-    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(
-            ({
-              name,
-              value,
-              options,
-            }: {
-              name: string;
-              value: string;
-              options?: CookieOptions;
-            }) => {
-              request.cookies.set(name, value);
-              response.cookies.set(name, value, options);
-            }
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
+  // Refresh session — IMPORTANT: do not remove this
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
+  // Unauthenticated → protected API → 401
   if (!user && isProtectedApiPath(pathname)) {
     return NextResponse.json(
-      {
-        success: false,
-        data: null,
-        error: "Unauthorized",
-      },
+      { success: false, data: null, error: "Unauthorized" },
       { status: 401 }
     );
   }
 
+  // Unauthenticated → protected page → redirect to login
   if (!user && isProtectedPath(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/auth/login";
-    redirectUrl.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(redirectUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(url);
   }
 
+  // Authenticated → guest-only pages → redirect to workspace
   if (user && isGuestOnlyPath(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/workspace";
-    return NextResponse.redirect(redirectUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = "/workspace";
+    return NextResponse.redirect(url);
   }
 
   return response;

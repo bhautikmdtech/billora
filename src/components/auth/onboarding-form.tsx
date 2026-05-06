@@ -26,26 +26,28 @@ export function OnboardingForm() {
   const [orgName, setOrgName] = useState("");
   const [category, setCategory] = useState<OrgCategory>("general");
   const [shopName, setShopName] = useState("");
-  const [shopCode, setShopCode] = useState("");
 
   async function handleSubmit() {
     setLoading(true);
     try {
       const response = await api.post<{
-        organization: { slug: string };
+        org: { slug: string };
         shop: { id: string };
       }>("/api/auth/onboarding/org", {
         orgName,
-        category,
+        orgCategory: category,
         shopName,
-        shopCode,
       });
 
-      toast.success("Organization created");
-      router.push(`/app/${response.data.organization.slug}/${response.data.shop.id}/dashboard`);
-      router.refresh();
+      if (response.success && response.data) {
+        toast.success("Organization created");
+        router.push(`/workspace/${response.data.org.slug}/${response.data.shop.id}/dashboard`);
+        router.refresh();
+      } else {
+        toast.error(response.error || "Onboarding failed");
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Onboarding failed");
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -76,11 +78,6 @@ export function OnboardingForm() {
         placeholder="First shop name"
         value={shopName}
         onChange={(event) => setShopName(event.target.value)}
-      />
-      <Input
-        placeholder="Shop code (e.g. RDR)"
-        value={shopCode}
-        onChange={(event) => setShopCode(event.target.value.toUpperCase())}
       />
       <Button className="w-full" onClick={() => void handleSubmit()} disabled={loading}>
         {loading ? "Creating..." : "Create organization"}

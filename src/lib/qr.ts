@@ -1,27 +1,28 @@
 import QRCode from "qrcode";
 
-export interface QrRenderOptions {
-  width?: number;
-  margin?: number;
-  darkColor?: string;
-  lightColor?: string;
-}
-
-export async function generateQrDataUrl(
-  value: string,
-  options: QrRenderOptions = {}
+export function generateQrData(
+  shopCode: string,
+  skuCode: string,
+  category: string,
+  color: string
 ) {
-  return QRCode.toDataURL(value, {
-    width: options.width ?? 320,
-    margin: options.margin ?? 1,
-    color: {
-      dark: options.darkColor ?? "#111111",
-      light: options.lightColor ?? "#FFFFFF",
-    },
+  return JSON.stringify({
+    s: shopCode,
+    k: skuCode,
+    c: category,
+    col: color,
   });
 }
 
-export function encodeQrPayload(payload: Record<string, unknown>) {
-  return JSON.stringify(payload);
+export async function generateQrImage(qrData: string): Promise<string> {
+  try {
+    const dataUrl = await QRCode.toDataURL(qrData, {
+      margin: 1,
+      width: 200,
+    });
+    return dataUrl;
+  } catch (err) {
+    console.error("QR Generation Error:", err);
+    throw new Error("Failed to generate QR image");
+  }
 }
-

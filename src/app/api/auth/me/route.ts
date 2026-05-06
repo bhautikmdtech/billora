@@ -1,30 +1,36 @@
-import { fail, getRequestLogger, ok } from "@/lib/http";
-import { ensureProfile, getAuthenticatedUser, getCurrentUserContext } from "@/lib/supabase/auth";
+import { NextResponse } from "next/server";
+import { requireAuth, getUserProfile } from "@/lib/auth";
+import { getUserOrganizations } from "@/db/queries/orgs.queries";
+import { getUserShops } from "@/db/queries/shops.queries";
 
 export async function GET() {
-  const logger = getRequestLogger("/api/auth/me");
-
   try {
-    const user = await getAuthenticatedUser();
-    await ensureProfile(user.id, {
-      fullName:
-        (user.user_metadata?.full_name as string | undefined) ||
-        user.email?.split("@")[0] ||
-        "New User",
-      phone: user.user_metadata?.phone as string | undefined,
-    });
+    const user = await requireAuth();
+    const profile = await getUserProfile(user.id);
 
-    const context = await getCurrentUserContext(user.id);
+    if (!profile) {
+      return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
+    }
 
-    return ok({
-      user: {
-        id: user.id,
-        email: user.email,
-      },
-      ...context,
+    const orgs = await getUserOrganizations(user.id);
+
+    const orgsWithShops = await Promise.all(
+      orgs.map(async ({ organization, role }) => ({
+        org: organization,
+        role,
+        shops: await getUserShops(user.id, organization.id),
+      }))
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: { profile, orgs: orgsWithShops },
     });
-  } catch (error) {
-    logger.error({ error }, "Failed to load auth context");
-    return fail("Unauthorized", 401);
+  } catch (err: any) {
+    if (err?.status) {
+      return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+    }
+    console.error(err);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

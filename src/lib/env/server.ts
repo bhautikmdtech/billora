@@ -29,6 +29,7 @@ const serverEnvSchema = z.object({
     DEFAULT_TIMEZONE: z.string().default("Asia/Kolkata"),
 
     NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+    STRIPE_SKIP: z.coerce.boolean().default(false),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);

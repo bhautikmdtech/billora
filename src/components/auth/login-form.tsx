@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export function LoginForm() {
 
   async function handleLogin() {
     setLoading(true);
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -40,7 +40,7 @@ export function LoginForm() {
   }
 
   async function handleGoogleLogin() {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

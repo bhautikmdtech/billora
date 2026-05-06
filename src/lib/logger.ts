@@ -1,16 +1,10 @@
-import pino, { type LoggerOptions } from "pino";
+import pino from "pino";
 
-import { envConfig } from "@/lib/env/config";
+const log = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: process.env.NODE_ENV === "development" 
+    ? { target: "pino-pretty", options: { colorize: true } }
+    : undefined,
+});
 
-const options: LoggerOptions = {
-  level: envConfig.logging.level,
-  base: undefined,
-  timestamp: pino.stdTimeFunctions.isoTime,
-};
-
-export const logger = pino(options);
-
-export function createRouteLogger(bindings: Record<string, string | number>) {
-  return logger.child(bindings);
-}
-
+export default log;

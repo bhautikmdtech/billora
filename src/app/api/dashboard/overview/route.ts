@@ -1,14 +1,12 @@
-import { getDashboardOverview } from "@/db/queries";
-import { fail, getRequestLogger, ok } from "@/lib/http";
+import { getDashboardOverview } from "@/db/queries/dashboard.queries";
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  const logger = getRequestLogger("/api/dashboard/overview");
-
   try {
     const overview = await getDashboardOverview();
-    return ok(overview);
+    return NextResponse.json({ success: true, data: overview });
   } catch (error) {
-    logger.error({ error }, "Failed to load dashboard overview");
-    return fail("Unable to load dashboard overview", 500);
+    console.error(error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
