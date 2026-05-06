@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { db } from "@/db";
 import { orgMembers, organizations, profiles, shopMembers, shops } from "@/db/schema";
 import { and, eq } from "drizzle-orm";

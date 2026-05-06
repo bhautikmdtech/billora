@@ -28,7 +28,10 @@ export async function getOrganizationInvites(orgId: string) {
     .where(eq(invites.orgId, orgId));
 }
 
-export async function updateInviteStatus(id: string, status: typeof invites.status.columnType) {
+export async function updateInviteStatus(
+  id: string,
+  status: "pending" | "accepted" | "expired" | "cancelled"
+) {
   const [updated] = await db
     .update(invites)
     .set({ status })

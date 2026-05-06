@@ -1,64 +1,85 @@
 "use client";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { toast } from "sonner";
 
+import { resetPasswordSchema, type ResetPasswordInput } from "@/features/auth/schemas";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { createClient } from "@/lib/supabase/client";
 
 export function ResetPasswordForm() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
-  async function handleSubmit() {
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
+  const form = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
-    setLoading(true);
+  async function onSubmit(values: ResetPasswordInput) {
     const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({
-      password,
-    });
-
-    setLoading(false);
+    const { error } = await supabase.auth.updateUser({ password: values.password });
 
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    toast.success("Password updated");
+    toast.success("Password updated — please sign in");
     router.push("/auth/login");
   }
 
   return (
-    <AuthCard
-      title="Choose new password"
-      description="Set a strong password for your account."
-    >
-      <Input
-        type="password"
-        placeholder="New password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-      />
-      <Input
-        type="password"
-        placeholder="Confirm password"
-        value={confirmPassword}
-        onChange={(event) => setConfirmPassword(event.target.value)}
-      />
-      <Button className="w-full" onClick={() => void handleSubmit()} disabled={loading}>
-        {loading ? "Updating..." : "Update password"}
-      </Button>
+    <AuthCard title="Choose new password" description="Set a strong password for your account.">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="New password"
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="Confirm new password"
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting ? "Updating..." : "Update password"}
+          </Button>
+        </form>
+      </Form>
     </AuthCard>
   );
 }
-

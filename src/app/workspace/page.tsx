@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { getUserOrganizations } from "@/db/queries/orgs.queries";
 import { getUserShops } from "@/db/queries/shops.queries";
-import { isSuperadmin } from "@/lib/permissions";
+import { isSuperAdmin } from "@/lib/permissions";
 
 export default async function WorkspacePage() {
   const user = await requireAuth();
 
-  if (isSuperadmin(user.email)) {
+  const superAdmin = await isSuperAdmin(user.id);
+  if (superAdmin) {
     redirect("/superadmin");
   }
 

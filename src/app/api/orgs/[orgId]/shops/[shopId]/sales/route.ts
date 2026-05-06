@@ -101,7 +101,10 @@ export async function POST(
       const grandTotal = subtotal - discountTotal + gstTotal;
       const changeReturned = Math.max(0, validated.amountPaid - grandTotal);
 
-      const billNumber = await generateBillNumber(params.shopId);
+      const shopRow = await tx.query.shops.findFirst({
+        where: (t, { eq }) => eq(t.id, params.shopId),
+      });
+      const billNumber = await generateBillNumber(params.shopId, shopRow?.code ?? "SHP");
 
       const [sale] = await tx
         .insert(sales)

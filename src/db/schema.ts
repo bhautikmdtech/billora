@@ -107,6 +107,7 @@ export const profiles = pgTable(
     fullName: text("full_name").notNull(),
     phone: text("phone"),
     avatarUrl: text("avatar_url"),
+    isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
     notificationPrefs: jsonb("notification_prefs")
       .$type<NotificationPrefs>()
       .default({})

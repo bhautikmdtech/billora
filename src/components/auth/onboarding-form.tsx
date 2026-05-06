@@ -1,88 +1,121 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTransition } from "react";
 import { toast } from "sonner";
 
+import { onboardingSchema, type OnboardingInput } from "@/features/orgs/schemas";
+import { createOrgOnboarding } from "@/features/orgs/actions";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api } from "@/lib/api";
-import type { OrgCategory } from "@/types/domain";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const categories: OrgCategory[] = [
-  "saree",
-  "dress",
-  "kariyana",
-  "jewellery",
-  "electronics",
-  "hardware",
-  "general",
+const CATEGORIES: { value: OnboardingInput["orgCategory"]; label: string }[] = [
+  { value: "saree", label: "Saree" },
+  { value: "dress", label: "Dress / Garments" },
+  { value: "kariyana", label: "Kariyana / Grocery" },
+  { value: "jewellery", label: "Jewellery" },
+  { value: "electronics", label: "Electronics" },
+  { value: "hardware", label: "Hardware" },
+  { value: "general", label: "General / Other" },
 ];
 
 export function OnboardingForm() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [orgName, setOrgName] = useState("");
-  const [category, setCategory] = useState<OrgCategory>("general");
-  const [shopName, setShopName] = useState("");
+  const [pending, startTransition] = useTransition();
 
-  async function handleSubmit() {
-    setLoading(true);
-    try {
-      const response = await api.post<{
-        org: { slug: string };
-        shop: { id: string };
-      }>("/api/auth/onboarding/org", {
-        orgName,
-        orgCategory: category,
-        shopName,
-      });
+  const form = useForm<OnboardingInput>({
+    resolver: zodResolver(onboardingSchema),
+    defaultValues: { orgName: "", orgCategory: "general", shopName: "" },
+  });
 
-      if (response.success && response.data) {
-        toast.success("Organization created");
-        router.push(`/workspace/${response.data.org.slug}/${response.data.shop.id}/dashboard`);
-        router.refresh();
-      } else {
-        toast.error(response.error || "Onboarding failed");
+  function onSubmit(values: OnboardingInput) {
+    startTransition(async () => {
+      try {
+        await createOrgOnboarding(values);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Something went wrong");
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (
     <AuthCard
       title="Create your organization"
-      description="Set up your legal business and first shop to enter the dashboard."
+      description="Set up your business and first shop to start."
     >
-      <Input
-        placeholder="Organization name"
-        value={orgName}
-        onChange={(event) => setOrgName(event.target.value)}
-      />
-      <select
-        className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
-        value={category}
-        onChange={(event) => setCategory(event.target.value as OrgCategory)}
-      >
-        {categories.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      <Input
-        placeholder="First shop name"
-        value={shopName}
-        onChange={(event) => setShopName(event.target.value)}
-      />
-      <Button className="w-full" onClick={() => void handleSubmit()} disabled={loading}>
-        {loading ? "Creating..." : "Create organization"}
-      </Button>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="orgName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Organization name</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. Mehta Textiles" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="orgCategory"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Business type</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="shopName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First shop name</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. Main Branch" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Creating..." : "Create organization"}
+          </Button>
+        </form>
+      </Form>
     </AuthCard>
   );
 }
-

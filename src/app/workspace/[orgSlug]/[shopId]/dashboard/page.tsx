@@ -6,7 +6,7 @@ import { getUserOrgRole } from "@/lib/permissions";
 import { getShopStats } from "@/db/queries/stats.queries";
 import { db } from "@/db";
 import { sales, customers } from "@/db/schema";
-import { eq, sql, gte, and } from "drizzle-orm";
+import { eq, sql, gte, lt, and } from "drizzle-orm";
 import { formatPaise, formatDate } from "@/lib/utils";
 import {
   Card,
@@ -27,57 +27,58 @@ import { Badge } from "@/components/ui/badge";
 import { startOfMonth, subDays } from "date-fns";
 
 interface Props {
-  params: { orgSlug: string; shopId: string };
+  params: Promise<{ orgSlug: string; shopId: string }>;
 }
 
 export default async function DashboardPage({ params }: Props) {
+  const { orgSlug, shopId } = await params;
   const user = await requireAuth();
 
-  const org = await getOrganizationBySlug(params.orgSlug);
+  const org = await getOrganizationBySlug(orgSlug);
   if (!org) redirect("/workspace");
 
   const role = await getUserOrgRole(user.id, org.id);
   if (!role) redirect("/workspace");
 
-  const shop = await getShopById(params.shopId);
+  const shop = await getShopById(shopId);
   if (!shop || shop.orgId !== org.id) redirect("/workspace");
 
-  const stats = await getShopStats(params.shopId);
+  const stats = await getShopStats(shopId);
 
-  // Last 7 days sales for mini chart
   const sevenDaysAgo = subDays(new Date(), 6);
-  const recentSalesList = await db
-    .select({
-      id: sales.id,
-      billNumber: sales.billNumber,
-      grandTotal: sales.grandTotal,
-      paymentMethod: sales.paymentMethod,
-      createdAt: sales.createdAt,
-    })
-    .from(sales)
-    .where(and(eq(sales.shopId, params.shopId), gte(sales.createdAt, sevenDaysAgo)))
-    .orderBy(sql`${sales.createdAt} DESC`)
-    .limit(5);
-
-  // Prev month for comparison
   const prevMonthStart = startOfMonth(subDays(new Date(), 31));
   const prevMonthEnd = startOfMonth(new Date());
 
-  const [prevMonthSales] = await db
-    .select({ total: sql<number>`coalesce(sum(${sales.grandTotal}), 0)` })
-    .from(sales)
-    .where(
-      and(
-        eq(sales.shopId, params.shopId),
-        gte(sales.createdAt, prevMonthStart),
-        sql`${sales.createdAt} < ${prevMonthEnd}`
-      )
-    );
+  const [recentSalesList, [prevMonthSales], [customerCount]] = await Promise.all([
+    db
+      .select({
+        id: sales.id,
+        billNumber: sales.billNumber,
+        grandTotal: sales.grandTotal,
+        paymentMethod: sales.paymentMethod,
+        createdAt: sales.createdAt,
+      })
+      .from(sales)
+      .where(and(eq(sales.shopId, shopId), gte(sales.createdAt, sevenDaysAgo)))
+      .orderBy(sql`${sales.createdAt} DESC`)
+      .limit(5),
 
-  const [customerCount] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(customers)
-    .where(eq(customers.shopId, params.shopId));
+    db
+      .select({ total: sql<number>`coalesce(sum(${sales.grandTotal}), 0)` })
+      .from(sales)
+      .where(
+        and(
+          eq(sales.shopId, shopId),
+          gte(sales.createdAt, prevMonthStart),
+          lt(sales.createdAt, prevMonthEnd)
+        )
+      ),
+
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(customers)
+      .where(eq(customers.shopId, shopId)),
+  ]);
 
   const growthPct =
     prevMonthSales.total > 0
@@ -194,10 +195,10 @@ export default async function DashboardPage({ params }: Props) {
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
             {[
-              { label: "New Sale", href: `/workspace/${params.orgSlug}/${params.shopId}/pos`, icon: ShoppingBag, color: "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" },
-              { label: "Add Stock", href: `/workspace/${params.orgSlug}/${params.shopId}/inventory`, icon: Package, color: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" },
-              { label: "View Sales", href: `/workspace/${params.orgSlug}/${params.shopId}/sales`, icon: Receipt, color: "bg-violet-500/10 text-violet-600 hover:bg-violet-500/20" },
-              { label: "Customers", href: `/workspace/${params.orgSlug}/${params.shopId}/customers`, icon: Users, color: "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20" },
+              { label: "New Sale", href: `/workspace/${orgSlug}/${shopId}/pos`, icon: ShoppingBag, color: "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" },
+              { label: "Add Stock", href: `/workspace/${orgSlug}/${shopId}/inventory`, icon: Package, color: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20" },
+              { label: "View Sales", href: `/workspace/${orgSlug}/${shopId}/sales`, icon: Receipt, color: "bg-violet-500/10 text-violet-600 hover:bg-violet-500/20" },
+              { label: "Customers", href: `/workspace/${orgSlug}/${shopId}/customers`, icon: Users, color: "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20" },
             ].map((action) => (
               <a
                 key={action.label}

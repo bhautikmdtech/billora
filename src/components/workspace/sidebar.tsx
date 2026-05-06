@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   BarChart3,
   Package,
@@ -19,13 +20,15 @@ import {
   Building2,
   Menu,
   X,
+  RotateCcw,
+  UserCheck,
+  Wallet,
+  Megaphone,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,12 +38,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { createClient } from "@/lib/supabase/client";
+import type { OrgRole } from "@/types/domain";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   exact?: boolean;
+  roles?: OrgRole[];
 }
 
 function NavLink({ item, base }: { item: NavItem; base: string }) {
@@ -64,13 +70,36 @@ function NavLink({ item, base }: { item: NavItem; base: string }) {
   );
 }
 
-interface SidebarProps {
+function NavSection({
+  title,
+  items,
+  base,
+}: {
+  title: string;
+  items: NavItem[];
+  base: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="pt-3">
+      <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+        {title}
+      </p>
+      {items.map((item) => (
+        <NavLink key={item.href} item={item} base={base} />
+      ))}
+    </div>
+  );
+}
+
+export interface SidebarProps {
   orgName: string;
   orgSlug: string;
   shopId: string;
   shopName: string;
   userEmail: string;
   userName: string;
+  userRole: OrgRole;
   shops: { id: string; name: string }[];
 }
 
@@ -81,25 +110,38 @@ export function Sidebar({
   shopName,
   userEmail,
   userName,
+  userRole,
   shops,
 }: SidebarProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-
   const base = `/workspace/${orgSlug}/${shopId}`;
 
-  const navItems: NavItem[] = [
+  const isManager =
+    userRole === "org_owner" || userRole === "partner" || userRole === "admin";
+
+  const coreItems: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: BarChart3, exact: true },
     { label: "POS", href: "/pos", icon: ShoppingCart },
-    { label: "Inventory", href: "/inventory", icon: Package },
     { label: "Sales", href: "/sales", icon: Receipt },
+    { label: "Inventory", href: "/inventory", icon: Package },
+  ];
+
+  const opsItems: NavItem[] = [
     { label: "Purchases", href: "/purchases", icon: Truck },
+    { label: "Returns", href: "/returns", icon: RotateCcw },
+    { label: "Suppliers", href: "/suppliers", icon: LayoutGrid },
     { label: "Customers", href: "/customers", icon: Users },
-    { label: "Expenses", href: "/expenses", icon: CreditCard },
+    { label: "Expenses", href: "/expenses", icon: Wallet },
+  ];
+
+  const managementItems: NavItem[] = [
+    { label: "Employees", href: "/employees", icon: UserCheck },
+    { label: "Members", href: "/members", icon: Users },
+    ...(isManager ? [{ label: "Marketing", href: "/marketing", icon: Megaphone }] : []),
   ];
 
   const settingsItems: NavItem[] = [
-    { label: "Members", href: "/members", icon: Users },
     { label: "Shop Settings", href: "/settings", icon: Settings },
   ];
 
@@ -128,18 +170,18 @@ export function Sidebar({
       </div>
 
       {/* Org + Shop switcher */}
-      <div className="p-3 border-b border-sidebar-border">
+      <div className="border-b border-sidebar-border p-3">
         <div className="rounded-xl bg-sidebar-accent/50 p-2.5">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-sidebar-foreground/60 shrink-0" />
-            <span className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wide truncate">
+            <Building2 className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
+            <span className="truncate text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/50">
               {orgName}
             </span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="mt-1.5 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
-                <div className="flex items-center gap-2 truncate">
+              <button className="mt-1.5 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent">
+                <div className="flex min-w-0 items-center gap-2">
                   <Store className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{shopName}</span>
                 </div>
@@ -152,37 +194,46 @@ export function Sidebar({
               {shops.map((s) => (
                 <DropdownMenuItem key={s.id} asChild>
                   <Link href={`/workspace/${orgSlug}/${s.id}/dashboard`}>
-                    <Store className="h-4 w-4 mr-2" />
+                    <Store className="mr-2 h-4 w-4" />
                     {s.name}
                   </Link>
                 </DropdownMenuItem>
               ))}
+              {isManager && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={`/workspace/${orgSlug}/settings/shops`}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Manage shops
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Main Nav */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-        {navItems.map((item) => (
+      {/* Nav */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+        {coreItems.map((item) => (
           <NavLink key={item.href} item={item} base={base} />
         ))}
-
-        <div className="pt-4">
-          <p className="px-3 pb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
-            Manage
-          </p>
-          {settingsItems.map((item) => (
-            <NavLink key={item.href} item={item} base={base} />
-          ))}
-          <Link
-            href={`/workspace/${orgSlug}/settings/subscription`}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all"
-          >
-            <CreditCard className="h-4 w-4 shrink-0" />
-            Subscription
-          </Link>
-        </div>
+        <NavSection title="Operations" items={opsItems} base={base} />
+        <NavSection title="Manage" items={managementItems} base={base} />
+        <NavSection title="Settings" items={settingsItems} base={base} />
+        {isManager && (
+          <div className="pt-3">
+            <Link
+              href={`/workspace/${orgSlug}/settings/subscription`}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <CreditCard className="h-4 w-4 shrink-0" />
+              Subscription
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
@@ -191,15 +242,15 @@ export function Sidebar({
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex flex-1 items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-sidebar-accent transition-colors text-left">
+              <button className="flex flex-1 items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent">
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-xs bg-sidebar-primary text-sidebar-primary-foreground">
+                  <AvatarFallback className="bg-sidebar-primary text-xs text-sidebar-primary-foreground">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-sidebar-foreground truncate">{userName}</p>
-                  <p className="text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-sidebar-foreground">{userName}</p>
+                  <p className="truncate text-xs text-sidebar-foreground/50">{userEmail}</p>
                 </div>
               </button>
             </DropdownMenuTrigger>
@@ -208,7 +259,8 @@ export function Sidebar({
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/profile">
-                  <User className="h-4 w-4 mr-2" /> Profile
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -216,7 +268,8 @@ export function Sidebar({
                 className="text-destructive focus:text-destructive"
                 onClick={() => void handleSignOut()}
               >
-                <LogOut className="h-4 w-4 mr-2" /> Sign out
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -227,15 +280,13 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile toggle */}
       <button
-        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-xl bg-sidebar-background border border-sidebar-border shadow-lg"
+        className="fixed left-4 top-4 z-50 rounded-xl border border-sidebar-border bg-sidebar-background p-2 shadow-lg lg:hidden"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 lg:hidden"
@@ -243,15 +294,13 @@ export function Sidebar({
         />
       )}
 
-      {/* Sidebar — desktop */}
-      <aside className="hidden lg:flex w-60 shrink-0 flex-col h-screen sticky top-0 border-r border-sidebar-border bg-sidebar-background">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar-background lg:flex">
         {sidebarContent}
       </aside>
 
-      {/* Sidebar — mobile */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-60 flex flex-col border-r border-sidebar-border bg-sidebar-background transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar-background transition-transform duration-300 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

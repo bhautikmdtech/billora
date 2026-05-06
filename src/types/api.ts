@@ -1,5 +1,12 @@
 export type SortOrder = "asc" | "desc";
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  pages: number;
+  limit: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

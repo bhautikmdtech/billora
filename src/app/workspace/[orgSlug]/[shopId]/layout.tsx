@@ -7,21 +7,23 @@ import { Sidebar } from "@/components/workspace/sidebar";
 
 interface Props {
   children: React.ReactNode;
-  params: { orgSlug: string; shopId: string };
+  params: Promise<{ orgSlug: string; shopId: string }>;
 }
 
 export default async function ShopLayout({ children, params }: Props) {
+  const { orgSlug, shopId } = await params;
+
   const user = await requireAuth();
   const profile = await getUserProfile(user.id);
 
-  const org = await getOrganizationBySlug(params.orgSlug);
+  const org = await getOrganizationBySlug(orgSlug);
   if (!org) redirect("/workspace");
 
   const role = await getUserOrgRole(user.id, org.id);
   if (!role) redirect("/workspace");
 
-  const shop = await getShopById(params.shopId);
-  if (!shop || shop.orgId !== org.id) redirect(`/workspace`);
+  const shop = await getShopById(shopId);
+  if (!shop || shop.orgId !== org.id) redirect("/workspace");
 
   const allShops = await getOrganizationShops(org.id);
 
@@ -34,6 +36,7 @@ export default async function ShopLayout({ children, params }: Props) {
         shopName={shop.name}
         userEmail={user.email ?? ""}
         userName={profile?.fullName ?? user.email ?? "User"}
+        userRole={role}
         shops={allShops.map((s) => ({ id: s.id, name: s.name }))}
       />
       <main className="flex-1 overflow-y-auto">

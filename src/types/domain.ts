@@ -9,28 +9,26 @@ export type OrgCategory =
 
 export type OrgRole = "org_owner" | "partner" | "admin" | "employee";
 export type ShopRole = "admin" | "employee";
+export type AnyRole = OrgRole | ShopRole | "super_admin";
 export type MemberStatus = "active" | "suspended";
 export type InviteStatus = "pending" | "accepted" | "expired" | "cancelled";
+
 export type PurchaseOrderStatus =
   | "draft"
   | "pending"
   | "partial"
   | "received"
   | "cancelled";
-export type PaymentMethod =
-  | "cash"
-  | "upi"
-  | "card"
-  | "credit"
-  | "cheque";
-export type SkuStatus =
-  | "available"
-  | "sold"
-  | "returned_supplier"
-  | "damaged";
+
+export type PaymentMethod = "cash" | "upi" | "card" | "credit" | "cheque";
+
+export type SkuStatus = "available" | "sold" | "returned_supplier" | "damaged";
+
 export type SaleStatus = "completed" | "partial_return" | "fully_returned";
+
 export type ReturnType = "customer_return" | "supplier_return";
 export type ReturnStatus = "pending" | "processed";
+
 export type ExpenseCategory =
   | "salary"
   | "rent"
@@ -39,13 +37,18 @@ export type ExpenseCategory =
   | "maintenance"
   | "misc"
   | "other";
+
 export type PayrollStatus = "pending" | "paid";
+
+export type AttendanceStatus = "present" | "absent" | "half_day" | "holiday";
+
 export type NotificationType =
   | "sale"
   | "low_stock"
   | "invite"
   | "payment"
   | "system";
+
 export type SubscriptionInterval = "month" | "year";
 export type SubscriptionStatus =
   | "active"
@@ -92,3 +95,28 @@ export interface StripePlan {
   prices: Partial<Record<SubscriptionInterval, StripePlanPrice>>;
 }
 
+// Context types passed through layouts
+
+export interface UserContext {
+  id: string;
+  email: string;
+  fullName: string;
+  avatarUrl: string | null;
+  isSuperAdmin: boolean;
+}
+
+export interface OrgContext {
+  id: string;
+  name: string;
+  slug: string;
+  category: OrgCategory;
+  logoUrl: string | null;
+  role: OrgRole;
+}
+
+export interface ShopContext {
+  id: string;
+  name: string;
+  code: string;
+  orgId: string;
+}

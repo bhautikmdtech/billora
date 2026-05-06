@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:migrate": "npx tsx --env-file=.env scripts/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
