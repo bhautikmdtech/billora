@@ -14,6 +14,7 @@ const updateSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   gstNumber: z.string().optional(),
   panNumber: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function GET(
@@ -42,7 +43,12 @@ export async function PATCH(
 ) {
   try {
     const user = await requireAuth();
-    await requireOrgRole(["org_owner", "partner"], user.id, params.orgId);
+    
+    // Check if superadmin OR has org role
+    const isSuper = user.email === process.env.SUPERADMIN_EMAIL;
+    if (!isSuper) {
+      await requireOrgRole(["org_owner", "partner"], user.id, params.orgId);
+    }
 
     const body = await req.json();
     const validated = updateSchema.parse(body);

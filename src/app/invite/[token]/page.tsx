@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
@@ -74,27 +75,48 @@ export default function InvitePage() {
   return (
     <AuthShell
       title="You've been invited"
-      description={`Join ${invite.org.name} as ${invite.invite.role}.`}
+      description={`Join ${invite.organization.name} as ${invite.invite.role}.`}
     >
-      <AuthCard title="Accept Invitation" description={`Invited by ${invite.invite.invitedBy}`}>
-        {!isLoggedIn && (
-          <>
-            <Input
-              placeholder="Full Name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="Create Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </>
-        )}
-        <Button className="w-full" onClick={handleAccept} disabled={accepting}>
-          {accepting ? "Accepting..." : "Accept Invitation"}
-        </Button>
+      <AuthCard 
+        title="Accept Invitation" 
+        description={invite.inviter?.fullName ? `Invited by ${invite.inviter.fullName}` : "Join your team on Billora"}
+      >
+        <div className="space-y-4">
+          {!isLoggedIn ? (
+            <>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Full Name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  placeholder="Create Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Already have an account? <Link href="/auth/login" className="text-primary hover:underline">Log in</Link> before accepting.
+              </p>
+            </>
+          ) : (
+            <div className="p-3 rounded-lg bg-muted/50 text-sm">
+              You are logged in as <span className="font-bold">{invite.invite.invitedEmail}</span>.
+            </div>
+          )}
+          
+          <Button 
+            className="w-full" 
+            onClick={handleAccept} 
+            disabled={accepting}
+          >
+            {accepting ? "Accepting..." : "Accept Invitation"}
+          </Button>
+        </div>
       </AuthCard>
     </AuthShell>
   );

@@ -52,7 +52,7 @@ function NavLink({ item, base }: { item: NavItem; base: string }) {
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all",
         isActive
           ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -244,14 +244,14 @@ export function Sidebar({
       )}
 
       {/* Sidebar — desktop */}
-      <aside className="hidden lg:flex w-64 shrink-0 flex-col h-screen sticky top-0 border-r border-sidebar-border bg-sidebar-background">
+      <aside className="hidden lg:flex w-60 shrink-0 flex-col h-screen sticky top-0 border-r border-sidebar-border bg-sidebar-background">
         {sidebarContent}
       </aside>
 
       {/* Sidebar — mobile */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 flex flex-col border-r border-sidebar-border bg-sidebar-background transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-60 flex flex-col border-r border-sidebar-border bg-sidebar-background transition-transform duration-300 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

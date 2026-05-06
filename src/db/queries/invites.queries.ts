@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { invites, organizations, shops } from "@/db/schema";
+import { invites, organizations, shops, profiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function getInviteByToken(token: string) {
@@ -8,10 +8,14 @@ export async function getInviteByToken(token: string) {
       invite: invites,
       organization: organizations,
       shop: shops,
+      inviter: {
+        fullName: profiles.fullName,
+      },
     })
     .from(invites)
     .innerJoin(organizations, eq(invites.orgId, organizations.id))
     .leftJoin(shops, eq(invites.shopId, shops.id))
+    .leftJoin(profiles, eq(invites.invitedBy, profiles.id))
     .where(eq(invites.token, token))
     .limit(1);
   return invite || null;

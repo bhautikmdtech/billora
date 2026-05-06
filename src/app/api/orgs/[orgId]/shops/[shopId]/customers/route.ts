@@ -7,11 +7,12 @@ import { parsePaginationParams, buildMeta } from "@/lib/pagination";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getShopCustomers, upsertCustomer } from "@/db/queries/customers.queries";
+import { handleError } from "@/lib/http";
 
 const schema = z.object({
   name: z.string().min(2),
   phone: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   whatsapp: z.string().optional(),
   address: z.any().optional(),
   notes: z.string().optional(),
@@ -42,8 +43,7 @@ export async function GET(
       meta: buildMeta(Number(totalRes.count), page, limit),
     });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return handleError(err);
   }
 }
 
@@ -53,7 +53,7 @@ export async function POST(
 ) {
   try {
     const user = await requireAuth();
-    await requireShopRole(["org_owner", "partner", "admin", "employee"], user.id, params.shopId);
+    await requireShopRole(["org_owner", "partner", "admin"], user.id, params.shopId);
 
     const body = await req.json();
     const validated = schema.parse(body);
@@ -62,14 +62,12 @@ export async function POST(
       ...validated,
       orgId: params.orgId,
       shopId: params.shopId,
+      email: validated.email || null,
       whatsapp: validated.whatsapp || validated.phone,
     });
 
     return NextResponse.json({ success: true, data: customer });
   } catch (err) {
-    if (err instanceof z.ZodError) { return handleError(err); }, { status: 400 });
-    }
-    console.error(err);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return handleError(err);
   }
 }
