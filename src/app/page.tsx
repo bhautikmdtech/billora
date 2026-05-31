@@ -185,7 +185,7 @@ export default function HomePage() {
               <h4 className="font-bold text-sm mb-4">Product</h4>
               <ul className="space-y-2 text-sm text-muted-foreground font-medium">
                 <li><a href="#features" className="hover:text-primary transition-colors">Features</a></li>
-                <li><Link href="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+                <li><Link href="/" className="hover:text-primary transition-colors">Pricing</Link></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Updates</a></li>
               </ul>
             </div>
